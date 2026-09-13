@@ -1,0 +1,52 @@
+# Secrets and environment variables
+.env
+.env.*
+.env.local
+.env.*.local
+*.env
+!.env.example
+
+# Python build, cache, and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+backend/venv/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+.mypy_cache/
+
+# Frontend dependencies and build artifacts
+node_modules/
+frontend/node_modules/
+frontend/dist/
+.eslintcache
+.vite/
+*.log
+
+# PostgreSQL local portable binaries and data directories
+backend/pgsql/
+pgsql/
+postgresql.zip
+*.log
+
+# OS & IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project packaging archives
+PromptBench.zip
+*.zip
+*.tar.gz
