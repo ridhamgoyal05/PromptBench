@@ -1,178 +1,283 @@
-# PromptBench 🧠⚖️
+# PromptBench — Interactive AI Collaboration Benchmarking Platform
 
-An end-to-end evaluation platform to measure how job candidates collaborate with AI assistants to solve open-ended business problems.
+[![CI](https://github.com/ridhamgoyal05/PromptBench/actions/workflows/ci.yml/badge.svg)](https://github.com/ridhamgoyal05/PromptBench/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688.svg)](https://fastapi.tiangolo.com)
+[![React](https://img.shields.io/badge/Frontend-React%2018-61DAFB.svg)](https://react.dev)
+[![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL%2016-336791.svg)](https://www.postgresql.org)
 
----
-
-## 📌 Product Thesis
-
-Modern hiring evaluates not just whether candidates reach an answer, but **how they use AI to get there**:
-- Do they ask targeted clarifying questions before jumping to conclusions?
-- Do they critically iterate and refine their approach rather than accepting the first output?
-- Do they catch AI hallucinations and verify claims against given ground-truth facts?
-- Do they synthesize data into clear, actionable, and well-justified recommendations?
-
-Unlike traditional coding interview platforms (LeetCode, HackerRank), **PromptBench** provides a standardized benchmark environment for evaluating real-time human-AI reasoning workflows.
+PromptBench is an interactive training and benchmarking platform designed to evaluate and enhance how effectively professionals and job candidates collaborate with AI assistants to solve open-ended, complex business case studies.
 
 ---
 
-## 🔒 Core Architectural Guarantee: Dual-Agent Isolation
+## 🎯 Overview
 
-The system maintains strict architectural isolation between two distinct AI roles:
+In modern workplaces, success is no longer defined merely by rote memorization or solo problem solving—it is defined by how effectively humans guide, challenge, and synthesize outputs from AI reasoning partners.
+
+Instead of traditional code puzzle platforms, PromptBench evaluates key AI-collaboration competencies:
+1. **Clarifying Questions**: Probing for missing data, ambiguous definitions, and constraints prior to formulating a recommendation.
+2. **Iteration & Refinement**: Challenging initial AI suggestions, digging into root causes, and iterating through follow-up prompts.
+3. **Hallucination Catching**: Detecting factual discrepancies or misleading statements generated during the dialogue.
+4. **Final Answer Quality**: Delivering a structured, actionable, mathematically sound executive deliverable.
+
+---
+
+## 🏗️ Architecture & Isolation Boundary
+
+A core architectural pillar of PromptBench is the strict security boundary isolating the **candidate-facing assistant** from the **server-side grading engine**.
 
 ```
-Browser (React + Tailwind)
-   │
-   │  HTTPS (REST + JWT)
-   ▼
-FastAPI Backend
-   │
-   ├── /api/auth/*          → User registration & JWT authentication
-   ├── /api/questions/*     → Fetch public case studies & contexts
-   ├── /api/submissions/*   → Session lifecycle & interactive chat turns
-   │       │
-   │       ├──► Helper AI (Claude) ─── Public Context ONLY
-   │       │                          (Zero access to rubric or ground truth)
-   │       │
-   │       └──► On Submit: Judge AI (Claude) ─── Rubric + Ground Truth + Full Transcript
-   │
-   └── /api/evaluations/*   → Dimension-level score breakdown & justifications
+Candidate
    │
    ▼
-PostgreSQL Database (Neon / Supabase)
+React 18 Frontend (SPA)
+   │
+   ▼
+FastAPI Backend (REST API) ────► PostgreSQL 16
+   │                    │
+   ▼                    ▼
+Helper AI (Claude)   Judge AI (Claude)
+(Public context      (Hidden ground truth +
+ only; no rubrics)    rubrics; runs on submission)
 ```
 
-- **Helper AI (Candidate Assistant):** Scoped strictly to public case prompt and context data with zero knowledge of the hidden rubric or ground-truth solutions.
-- **Judge AI (Server-Side Evaluator):** Triggered only upon final answer submission to evaluate the full transcript against the hidden rubric and ground-truth notes.
+### The Two Isolated AI Roles:
+
+1. **Helper AI (`backend/app/candidate_llm.py`)**:
+   - Acts as a conversational thinking partner during the live case workspace session.
+   - Has access **only** to the public case prompt and context data.
+   - **Never** receives hidden ground-truth notes, rubric schemas, grading instructions, or evaluation results.
+
+2. **Judge AI (`backend/app/judge_llm.py`)**:
+   - Invoked **only** when the candidate submits their final answer.
+   - Analyzes the full transcript, final answer, hidden ground truth, and scoring rubrics.
+   - Produces a structured JSON grading report with overall and dimensional scores, validated by Pydantic before persistence.
 
 ---
 
-## 🛠️ Tech Stack
+## 💻 Tech Stack
 
-| Layer | Technology | Purpose |
-|---|---|---|
-| **Frontend** | React (Vite) + Tailwind CSS | Interactive chat workspace, answer editor, score dashboard |
-| **Backend** | Python + FastAPI + SQLAlchemy | REST APIs, session management, LLM orchestration |
-| **Database** | PostgreSQL (Neon / Supabase) | Relational persistence of cases, transcripts, and scores |
-| **Authentication** | JWT (`python-jose`) + bcrypt (`passlib`) | Stateless token authentication & password hashing |
-| **AI Provider** | Anthropic Claude (`claude-sonnet-4-6`) | Powers Helper and Judge roles independently |
-| **Deployment** | Vercel (Frontend) + Render/Railway (Backend) | Cloud deployment targets |
+### Backend
+- **Framework**: [FastAPI](https://fastapi.tiangolo.com/) (Python 3.10+)
+- **ORM & Database**: [SQLAlchemy 2.0](https://www.sqlalchemy.org/) + [PostgreSQL 16](https://www.postgresql.org/) (via `psycopg2-binary`)
+- **Data Validation**: [Pydantic v2](https://docs.pydantic.dev/)
+- **Authentication**: JWT (`python-jose`) + password hashing (`bcrypt`)
+- **AI Integration**: [Anthropic Claude API](https://docs.anthropic.com/) (`claude-3-5-sonnet-20241022`)
+- **Automated Verification**: `unittest` + `httpx` (`TestClient`)
 
----
-
-## 📊 Default Scoring Rubric & Anti-Gaming
-
-### Weighted Evaluation Dimensions (0–10 Scale)
-1. **Clarifying Questions (20%):** Assesses whether the candidate asks pertinent questions before proposing a solution.
-2. **Iteration Quality (25%):** Measures prompt refinements and critical follow-ups across multiple turns.
-3. **Hallucination Catching (25%):** Tests candidate detection of incorrect or distractor AI statements.
-4. **Final Answer Quality (30%):** Evaluates if the recommendation is correct, data-grounded, and viable.
-
-### Automated Anti-Gaming Heuristics
-Run server-side prior to invoking the Judge LLM:
-- **Near-Zero Conversation:** Flags sessions submitted with fewer than 2 conversational turns.
-- **Too-Fast Submission:** Flags submissions completed in under 30 seconds from session initiation.
-- **Pre-Formed Text Dump:** Flags cases where turn 1 exceeds 500 characters and mirrors the final answer.
+### Frontend
+- **Framework**: [React 18](https://react.dev/) + [Vite](https://vitejs.dev/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **Routing**: [React Router DOM v6](https://reactrouter.com/)
+- **HTTP Client**: [Axios](https://axios-http.com/)
 
 ---
 
-## 🧪 Worked Example: "Sudden Churn Spike"
+## ✨ Key Features
 
-- **Problem Prompt:** "Our SaaS product's monthly churn jumped from 4% to 9% last month. Diagnose the likely cause and recommend one action using the dataset provided."
-- **Context Dataset:** Synthetic dataset mixing survey responses and usage stats with a pricing complaint distractor and a feature removal signal.
-- **Ground Truth:** The feature removal caused the churn; pricing complaints represent a minority vocal distractor.
-- **High-Scoring Candidate Interaction:**
-  1. Requests correlation breakdown between churn cohorts and plan pricing.
-  2. Notices usage drops immediately following feature deprecation and asks the AI to analyze usage dates.
-  3. Catches AI distractor summaries and focuses final recommendation on reinstating the removed feature.
-
----
-
-## 📂 Repository Structure
-
-```
-.
-├── backend/
-│   ├── app/
-│   │   ├── main.py               # FastAPI entrypoint
-│   │   ├── db.py                 # DB connection and session setup
-│   │   ├── auth_utils.py         # JWT tokens & bcrypt hashing
-│   │   ├── models/models.py      # SQLAlchemy schema (5 tables)
-│   │   ├── schemas/schemas.py    # Pydantic request/response schemas
-│   │   ├── routers/              # Auth, Questions, Submissions, Evaluations
-│   │   ├── services/             # candidate_llm.py, judge_llm.py, anti_gaming.py
-│   │   └── prompts/              # Candidate and Judge system prompt templates
-│   ├── requirements.txt          # Python dependencies
-│   └── .env.example
-│
-└── frontend/
-    ├── src/
-    │   ├── api/client.js         # Axios client with JWT interceptor
-    │   ├── pages/                # Login, Signup, QuestionList, CaseWorkspace, ScoreDashboard
-    │   ├── components/           # ChatPane, ScoreBreakdown, TranscriptViewer
-    │   ├── App.jsx               # React Router configuration
-    │   └── main.jsx
-    ├── package.json
-    └── tailwind.config.js
-```
+- **User Authentication**: Secure signup and login with hashed passwords and signed JWT tokens.
+- **Case Catalog**: Browse open-ended business cases by category and difficulty.
+- **Interactive Case Workspace**: Two-pane interface with live AI conversation and a rich answer editor.
+- **Transcript Persistence**: Turn-by-turn conversation logging stored in PostgreSQL.
+- **Multi-Dimensional AI Evaluation**: Objective, rubric-driven grading generated by Judge AI upon submission.
+- **Structured Score Validation**: Strict Pydantic parsing preventing malformed or out-of-bounds scores.
+- **Anti-Gaming Detection**: Automated heuristics identifying sub-30s speed runs, zero-turn chats, and pre-written copy-paste submissions.
+- **Attempt History & Score Breakdown**: Detailed historical reports with qualitative reasoning and dimensional radar metrics.
 
 ---
 
-## 🚀 Getting Started
+## 📚 Seeded Business Case Studies
 
-### 1. Database Setup
-Execute the table schemas in your PostgreSQL database instance:
-```sql
-CREATE TABLE users (id SERIAL PRIMARY KEY, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, name TEXT, created_at TIMESTAMP DEFAULT NOW());
-CREATE TABLE questions (id SERIAL PRIMARY KEY, title TEXT NOT NULL, category TEXT NOT NULL, prompt_text TEXT NOT NULL, context_data TEXT NOT NULL, ground_truth_notes TEXT NOT NULL, difficulty TEXT NOT NULL, rubric_json JSONB NOT NULL, created_at TIMESTAMP DEFAULT NOW());
-CREATE TABLE submissions (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id), question_id INTEGER REFERENCES questions(id), status TEXT DEFAULT 'in_progress', final_answer_text TEXT, started_at TIMESTAMP DEFAULT NOW(), submitted_at TIMESTAMP);
-CREATE TABLE transcript_turns (id SERIAL PRIMARY KEY, submission_id INTEGER REFERENCES submissions(id), turn_index INTEGER NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT NOW());
-CREATE TABLE evaluations (id SERIAL PRIMARY KEY, submission_id INTEGER REFERENCES submissions(id), overall_score INTEGER, dimension_scores_json JSONB, judge_reasoning TEXT, anti_gaming_flags JSONB, created_at TIMESTAMP DEFAULT NOW());
+PromptBench includes 5 realistic, pre-configured business cases:
+
+1. **Sudden Churn Spike** (`Data Diagnosis` | Medium)
+   - *Problem*: A SaaS platform observes an unexpected 28% jump in churn following a major product release.
+   - *Core Task*: Disentangle metrics, isolate user cohort issues, and formulate retention actions.
+2. **New Market Entry** (`Strategy / Market Sizing` | Hard)
+   - *Problem*: An EV infrastructure operator evaluates expanding into Southeast Asia.
+   - *Core Task*: Model market sizing, identify regulatory barriers, and propose phased expansion.
+3. **Angry Customer Escalation** (`Operations / Incident Response` | Hard)
+   - *Problem*: A production payment outage impacts top enterprise tier accounts during peak volume.
+   - *Core Task*: Lead incident triage, structure executive communications, and produce an operational post-mortem.
+4. **Sales Decline Diagnosis** (`Business Analytics` | Medium)
+   - *Problem*: Mid-market deal closures and pipeline velocity declined over two consecutive quarters.
+   - *Core Task*: Investigate sales funnel conversion rates, diagnose sales cycle friction, and present corrective actions.
+5. **Product Launch Strategy** (`Product Strategy` | Easy)
+   - *Problem*: Prioritizing feature sets and pricing tiers for a new AI workspace tool.
+   - *Core Task*: Balance feature scope against time-to-market and establish a launch roadmap.
+
+---
+
+## 🚀 Local Setup Guide
+
+### 1. Clone & Setup Workspace
+```bash
+git clone https://github.com/ridhamgoyal05/PromptBench.git
+cd PromptBench
 ```
 
-### 2. Backend Setup
+### 2. Configure Environment Variables
+```bash
+# Copy template files
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+```
+
+### 3. Backend Setup
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Windows:
+.\venv\Scripts\activate
+# Linux/macOS:
+source venv/bin/activate
+
 pip install -r requirements.txt
+python seed.py
+cd ..
 ```
 
-Create `backend/.env`:
-```env
-DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<dbname>
-ANTHROPIC_API_KEY=your_anthropic_api_key
-JWT_SECRET=your_long_random_jwt_secret_key
-```
-
-Start backend server:
-```bash
-uvicorn app.main:app --reload --port 8000
-```
-
-### 3. Frontend Setup
+### 4. Frontend Setup
 ```bash
 cd frontend
 npm install
+cd ..
 ```
 
-Create `frontend/.env`:
-```env
-VITE_API_BASE_URL=http://localhost:8000/api
-```
+### 5. Running the Application
+You can use the helper batch scripts (Windows) or execute directly:
 
-Start development server:
 ```bash
-npm run dev
+# Terminal 1 — Start PostgreSQL (or run local PostgreSQL service)
+scripts\start_postgres.bat
+
+# Terminal 2 — Start FastAPI Backend
+scripts\start_backend.bat
+# Or manually: uvicorn backend.app.main:app --reload --port 8000
+
+# Terminal 3 — Start React Frontend
+scripts\start_frontend.bat
+# Or manually: cd frontend && npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+---
+
+## 🧪 Automated Verification & Testing
+
+PromptBench includes an end-to-end automated test suite verifying all critical backend modules:
+
+```bash
+# Run the test suite
+python backend/test_flow.py
+```
+
+### Verified Test Areas:
+1. **Authentication & Multi-Tenant Authorization**: Verifies account creation, JWT issuance, and strict submission ownership boundaries (403 on cross-tenant access).
+2. **Hidden Data Protection**: Asserts that `ground_truth_notes` and `rubric_json` are never leaked to candidate endpoints.
+3. **Submission State Transitions**: Tests full lifecycle progression (`in_progress` $\to$ `submitted`) and prevents post-submission mutations.
+4. **Judge AI JSON Validation**: Tests Pydantic parsing of normal and Markdown-fenced JSON, validating score boundaries (0-100 overall, 0-10 per dimension).
+5. **Evaluation Failure & Retry Semantics**: Simulates LLM service interruptions, verifying state transitions to `evaluation_failed` and preserving data across retries.
+6. **Anti-Gaming Guardrails**: Detects zero conversation turns, sub-30s speed submissions, and pasted pre-written responses.
+7. **Attempt History Filtering**: Confirms history queries strictly return completed attempts and ignore pending or failed sessions.
+
+*Test Suite Execution Status: Verified locally with PostgreSQL (`7 passed in 4.65s, OK`).*
+
+---
+
+## 📁 Repository Structure
+
+```
+PromptBench/
+├── .github/
+│   └── workflows/
+│       └── ci.yml                 # GitHub Actions CI pipeline
+├── Docs/
+│   ├── PromptBench Pitch.pptx     # Team Pitch Presentation
+│   ├── PromptBench_Project_Proposal.docx # Project Proposal
+│   ├── architecture.md            # Architectural deep-dive & diagrams
+│   ├── api.md                     # REST API reference
+│   ├── setup.md                   # Setup & deployment guide
+│   ├── testing.md                 # Testing methodology & test areas
+│   └── walkthrough.md             # User journey & troubleshooting
+├── scripts/
+│   ├── start_backend.bat          # Windows backend launcher
+│   ├── start_frontend.bat         # Windows frontend launcher
+│   ├── start_postgres.bat         # Windows PostgreSQL launcher
+│   ├── status_postgres.bat        # PostgreSQL status checker
+│   └── stop_postgres.bat          # PostgreSQL shutdown script
+├── backend/
+│   ├── app/
+│   │   ├── __init__.py            # Explicit Python package marker
+│   │   ├── main.py                # FastAPI app entry & CORS configuration
+│   │   ├── config.py              # Settings loader & environment validator
+│   │   ├── db.py                  # SQLAlchemy session & engine
+│   │   ├── models.py              # Relational database models
+│   │   ├── schemas.py             # Pydantic request/response schemas
+│   │   ├── auth.py                # JWT authentication router
+│   │   ├── auth_utils.py          # Password hashing & token encoding
+│   │   ├── questions.py           # Case study catalog router
+│   │   ├── submissions.py         # Case workspace & chat router
+│   │   ├── evaluations.py         # Grading results & attempt history router
+│   │   ├── candidate_llm.py       # Helper AI integration
+│   │   ├── judge_llm.py           # Judge AI grading service
+│   │   └── anti_gaming.py         # Heuristic anti-gaming checks
+│   ├── seed.py                    # Database seeder (5 case studies)
+│   ├── setup_postgres.py          # Portable PostgreSQL utility
+│   ├── test_flow.py               # Automated verification test suite
+│   ├── requirements.txt           # Python dependencies
+│   └── .env.example               # Backend environment template
+├── frontend/
+│   ├── src/
+│   │   ├── api/
+│   │   │   └── client.js          # Axios client with JWT interceptor
+│   │   ├── pages/
+│   │   │   ├── Login.jsx
+│   │   │   ├── Signup.jsx
+│   │   │   ├── QuestionList.jsx
+│   │   │   ├── CaseWorkspace.jsx
+│   │   │   ├── ScoreDashboard.jsx
+│   │   │   └── MyAttempts.jsx
+│   │   ├── App.jsx                # App router and layout
+│   │   ├── main.jsx               # React DOM entry
+│   │   └── index.css              # Tailwind directives
+│   ├── package.json               # Node dependencies & build scripts
+│   ├── package-lock.json          # Dependency lockfile
+│   ├── vite.config.js             # Vite build configuration
+│   ├── tailwind.config.js         # Tailwind theme configuration
+│   └── .env.example               # Frontend environment template
+├── start_backend.bat              # Root convenience launchers
+├── start_frontend.bat
+├── start_postgres.bat
+├── status_postgres.bat
+├── stop_postgres.bat
+├── .gitignore                     # Production ignore rules
+├── LICENSE                        # MIT License
+└── README.md                      # Comprehensive project documentation
 ```
 
 ---
 
-## ⚠️ Known Limitations
+## 🔒 Security & Data Isolation
 
-- **LLM Non-Determinism:** Minor score variance across repeated runs on identical transcripts; mitigated using low temperature settings ($T \le 0.2$) and strict citation requirements.
-- **Heuristic Anti-Gaming:** Heuristics serve as transparency signals rather than hard blocks.
-- **Case Bank Expansion:** Ships with core seed cases with active work ongoing to expand domain scenarios.
+- **Zero Secret Exposure**: Real API keys, JWT secrets, and database credentials are excluded from version control.
+- **Server-Side Rubric Isolation**: Evaluation rubrics and ground truth notes never leave the backend database/server memory.
+- **Strict Ownership Checks**: All submission and evaluation endpoints enforce `submission.user_id == current_user.id`.
+- **Input Sanitization**: Password hashing with `bcrypt` (12 rounds) and JWT signing with HMAC-SHA256.
 
 ---
 
+## 🗺️ Future Roadmap
+
+- **Expanded Case Catalog**: Adding technical architecture, incident management, and product analytics scenarios.
+- **Human vs. Judge Calibration**: Benchmarking Judge AI scoring distributions against senior hiring manager evaluations.
+- **Instructor / Enterprise Admin Dashboard**: Cohort analytics, time-spent breakdowns, and exportable candidate scorecards.
+- **Observability & Rate Limiting**: Distributed tracing with OpenTelemetry, token budgeting, and Redis-backed rate limiting.
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
