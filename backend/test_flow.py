@@ -19,6 +19,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Set test environment flags
 os.environ["ENV"] = "testing"
+os.environ["RUN_LLM_TESTS"] = "false"
 # If no DATABASE_URL is set, we will use a dummy test URL to pass import checks,
 # but we tell the user they must supply one.
 if not os.getenv("DATABASE_URL"):
