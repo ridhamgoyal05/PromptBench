@@ -469,8 +469,7 @@ context down to detailed process-level data movement.
 
 The Level 0 DFD provides a context-level overview: the Candidate exchanges case data, chat
 messages, and final answers with the PromptBench System, and the system in turn calls out to the
-Anthropic API (LLM provider) to power both the Helper AI and the Judge AI.
-
+Google Gemini API (LLM provider) to power both the Helper AI and the Judge AI.
 \begin{center}
 \begin{tikzpicture}[
     ext/.style={draw, minimum width=2.6cm, minimum height=1.0cm, align=center, font=\small},
@@ -478,7 +477,7 @@ Anthropic API (LLM provider) to power both the Helper AI and the Judge AI.
 ]
     \node[ext] (cand) at (0,0) {Candidate};
     \node[proc] (sys) at (5.5,0) {PromptBench\\System};
-    \node[ext] (llm) at (11,0) {Anthropic API\\(LLM Provider)};
+    \node[ext] (llm) at (11,0) {Google Gemini API\\(LLM Provider)};
 
     \draw[-{Latex}] (cand.east) .. controls (2.7,0.8) .. (sys.west) node[midway,above,font=\scriptsize] {Signup/Login, Search, Chat, Final Answer};
     \draw[-{Latex}] (sys.west) .. controls (2.7,-0.8) .. (cand.east) node[midway,below,font=\scriptsize] {Questions, Helper Replies, Evaluation Report};
@@ -506,7 +505,7 @@ The Level 1 DFD breaks the system into its five core processes and four data sto
     \node[proc] (p3) at (3.6,0.6) {3.0 Submission \&\\Conversation Mgmt};
     \node[proc] (p4) at (3.6,-0.8) {4.0 Anti-Gaming\\Validation};
     \node[proc] (p5) at (3.6,-2.2) {5.0 Judge\\Evaluation};
-    \node[ext] (llm) at (7.4,-0.8) {Anthropic API};
+    \node[ext] (llm) at (7.4,-0.8) {Google Gemini API};
 
     \node[store] (d1) at (7.4,3.4) {D1: Users};
     \node[store] (d2) at (7.4,2.0) {D2: Questions};
@@ -555,7 +554,7 @@ The Level 2 DFD expands processes 3.0 and 5.0, mirroring the actual backend logi
     \node[proc] (p54) at (4,-3.0) {5.4 Validate \& Parse JSON};
     \node[proc] (p55) at (4,-4.2) {5.5 Persist Evaluation};
     \node[store] (d4) at (0,-4.2) {D4: Evaluations};
-    \node[ext] (llm) at (8,3.2) {Anthropic API};
+    \node[ext] (llm) at (8,3.2) {Google Gemini API};
 
     \draw[-{Latex}] (cand) -- (p31);
     \draw[-{Latex}] (cand) -- (p32);
@@ -631,7 +630,7 @@ PromptBench is a standalone full-stack web application consisting of:
     Score Dashboard, My Attempts pages)
     \item Backend: FastAPI + SQLAlchemy + Pydantic, exposing REST endpoints under \texttt{/api}
     \item Database: PostgreSQL 16.2
-    \item External Service: Anthropic API (powers both the Helper AI and the Judge AI)
+    \item External Service: Google Gemini API (powers both the Helper AI and the Judge AI)
 \end{itemize}
 A key architectural principle is \textbf{Helper vs. Judge isolation}: the Helper AI never
 receives rubric schemas, hidden ground-truth documents, grading instructions, or evaluations; the
@@ -664,7 +663,7 @@ transcript, final answer, ground truth, and rubric.
 
 \subsubsection{Constraints}
 \begin{itemize}[nosep]
-    \item Requires an internet connection and a valid Anthropic API key.
+    \item Requires an internet connection and a valid Gemini API key.
     \item Grading quality depends on the completeness of the seeded rubric and ground-truth
     notes.
     \item Currently limited to a web platform (desktop browser).
@@ -673,7 +672,7 @@ transcript, final answer, ground truth, and rubric.
 \subsubsection{Assumptions and Dependencies}
 \begin{itemize}[nosep]
     \item Candidates have basic digital literacy.
-    \item The Anthropic API is reachable and returns well-formed responses.
+    \item The Gemini API is reachable and returns well-formed responses.
     \item PostgreSQL is running and reachable at the configured \texttt{DATABASE\_URL}.
 \end{itemize}
 
@@ -683,7 +682,7 @@ transcript, final answer, ground truth, and rubric.
 \textbf{User Interface:} Simple, distraction-free case workspace with a chat pane and a final
 answer draft pane; a score dashboard with dimension breakdowns.\\
 \textbf{Hardware Interface:} Works on any device with a modern web browser.\\
-\textbf{Software Interface:} PostgreSQL database; Anthropic API (\texttt{messages.create});
+\textbf{Software Interface:} PostgreSQL database; Google Gemini API (\texttt{generate\_content});
 JWT-based authentication.
 
 \subsubsection{Functional Requirements}

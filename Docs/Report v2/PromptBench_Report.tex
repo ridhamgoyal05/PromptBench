@@ -399,7 +399,7 @@ path.
 {
 \begin{enumerate}[nosep]
   \item System builds a system prompt from the case's public context only.
-  \item System sends the conversation history to the Claude API.
+  \item System sends the conversation history to the Gemini API.
   \item System returns the assistant's reply.
 \end{enumerate}
 }
@@ -425,7 +425,7 @@ path.
 {
 \begin{enumerate}[nosep]
   \item System builds a system prompt containing the rubric and hidden ground-truth notes.
-  \item System sends the full transcript and final answer to the Claude API.
+  \item System sends the full transcript and final answer to the Gemini API.
   \item System parses and validates the returned JSON against a strict schema.
   \item System stores the evaluation and marks the submission as \texttt{submitted}.
 \end{enumerate}
@@ -665,7 +665,7 @@ roles, and system constraints.
 \subsubsection{Overall Description}
 \textbf{Product Perspective}\\
 PromptBench is a standalone web application consisting of a React frontend, a FastAPI
-backend, a PostgreSQL database, and an external AI provider (Claude API) used for both the
+backend, a PostgreSQL database, and an external AI provider (Gemini API) used for both the
 Helper AI and Judge AI roles.
 
 \textbf{Product Functions}\\
@@ -682,21 +682,21 @@ via the Judge AI.
 
 \textbf{Constraints}
 \begin{itemize}[nosep]
-  \item Requires an internet connection and a configured Claude API key.
+  \item Requires an internet connection and a configured Gemini API key.
   \item Currently targets local development; no deployment configuration exists yet.
 \end{itemize}
 
 \textbf{Assumptions and Dependencies}
 \begin{itemize}[nosep]
   \item Users have basic digital literacy.
-  \item The Claude API is available and returns well-formed responses (or the system falls back to mocked responses in test mode).
+  \item The Gemini API is available and returns well-formed responses (or the system falls back to mocked responses in test mode).
 \end{itemize}
 
 \subsubsection{Specific Requirements}
 \textbf{External Interface Requirements}\\
 User Interface: simple login/signup forms, a case list, a chat-style case workspace, and a
 score dashboard.\\
-Software Interface: PostgreSQL database, Anthropic Claude API.
+Software Interface: PostgreSQL database, Google Gemini API.
 
 \textbf{Functional Requirements}
 \begin{description}[nosep]

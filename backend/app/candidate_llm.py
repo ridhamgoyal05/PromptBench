@@ -1,13 +1,14 @@
 import os
-from anthropic import Anthropic
-from backend.app.config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL, RUN_LLM_TESTS
+from google import genai
+from google.genai import types
+from backend.app.config import GEMINI_API_KEY, GEMINI_MODEL, RUN_LLM_TESTS
 
-if not ANTHROPIC_MODEL:
-    raise ValueError("Configuration Error: ANTHROPIC_MODEL is required.")
+if not GEMINI_MODEL:
+    raise ValueError("Configuration Error: GEMINI_MODEL is required.")
 
 client = None
-if ANTHROPIC_API_KEY:
-    client = Anthropic(api_key=ANTHROPIC_API_KEY)
+if GEMINI_API_KEY:
+    client = genai.Client(api_key=GEMINI_API_KEY)
 
 CANDIDATE_SYSTEM_PROMPT = """You are a helpful AI assistant available to the candidate
 for this case study. You have access only to the case context provided below.
@@ -29,22 +30,27 @@ def call_helper_ai(prompt_text: str, context_data: str, history: list) -> str:
 
     system_prompt = CANDIDATE_SYSTEM_PROMPT.format(context_data=context_data)
     
-    # Map roles: FastAPI database uses 'user' and 'assistant', but Anthropic expects 'user' and 'assistant'
-    messages = []
+    # Map roles: FastAPI database uses 'user' and 'assistant', but Gemini expects 'user' and 'model'
+    contents = []
     for turn in history:
-        messages.append({
-            "role": turn["role"],
-            "content": turn["content"]
-        })
+        role = "user" if turn["role"] == "user" else "model"
+        contents.append(
+            types.Content(
+                role=role,
+                parts=[types.Part.from_text(text=turn["content"])]
+            )
+        )
         
     try:
-        response = client.messages.create(
-            model=ANTHROPIC_MODEL,
-            max_tokens=1000,
-            system=system_prompt,
-            messages=messages
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                max_output_tokens=1000,
+            )
         )
-        return response.content[0].text
+        return response.text
     except Exception as e:
         # For candidate helper, we raise the exception so the router can return a 500 error
         raise RuntimeError(f"Helper AI API call failed: {str(e)}")

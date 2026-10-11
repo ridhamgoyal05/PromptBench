@@ -30,7 +30,7 @@ There is no widely-used practice tool for this skill today, unlike the saturated
 | Backend | Python + FastAPI + SQLAlchemy |
 | Database | PostgreSQL (Neon or Supabase, free tier) |
 | Auth | JWT tokens, passwords hashed with bcrypt (via `passlib`) |
-| AI provider | Anthropic Claude API, model `claude-sonnet-4-6`, used for two separate roles (Helper, Judge) |
+| AI provider | Google Gemini API, model `gemini-2.5-flash`, used for two separate roles (Helper, Judge) |
 | Frontend deploy | Vercel |
 | Backend deploy | Render or Railway |
 
@@ -51,10 +51,10 @@ FastAPI Backend
    ├── /api/questions/*     → list/fetch case studies (public fields only)
    ├── /api/submissions/*   → start a case, send chat messages, submit final answer
    │       │
-   │       ├──► Helper AI call (Claude) — scoped system prompt, case context ONLY
+   │       ├──► Helper AI call (Gemini) — scoped system prompt, case context ONLY
    │       │        no rubric, no ground truth, ever
    │       │
-   │       └──► on submit: Judge AI call (Claude) — rubric + full transcript +
+   │       └──► on submit: Judge AI call (Gemini) — rubric + full transcript +
    │                final answer + ground truth notes → structured JSON score
    │
    └── /api/evaluations/*   → fetch a submission's score breakdown
@@ -132,7 +132,7 @@ The backend needs a `.env` file (never committed to git) with:
 
 ```
 DATABASE_URL=postgresql://<connection string from Neon/Supabase>
-ANTHROPIC_API_KEY=<key>
+GEMINI_API_KEY=<key>
 JWT_SECRET=<any long random string>
 ```
 
@@ -179,7 +179,7 @@ sqlalchemy
 psycopg2-binary
 python-jose
 passlib[bcrypt]
-anthropic
+google-genai
 python-dotenv
 pydantic
 ```
@@ -271,7 +271,7 @@ Case Context: {context_data}
 """
 ```
 
-**Service logic** (`services/candidate_llm.py`): Build the message list as `conversation_history + [{"role": "user", "content": new_message}]`. Call `client.messages.create(model="claude-sonnet-4-6", max_tokens=1000, system=system_prompt, messages=messages)`. Return `response.content[0].text`.
+**Service logic** (`services/candidate_llm.py`): Build contents list from history. Call Gemini `client.models.generate_content(model="gemini-2.5-flash", contents=contents, config=...)`. Return `response.text`.
 
 The Helper AI must never be constructed with the rubric or ground truth in scope, even accidentally via a shared prompt-builder function. Keep its prompt-building code entirely separate from the Judge's.
 
@@ -303,7 +303,7 @@ Ground truth notes: {ground_truth_notes}
 """
 ```
 
-**Service logic** (`services/judge_llm.py`): Format the transcript as plain text lines (`"{role}: {content}"`), build a user message containing the transcript and final answer, call Claude with the judge system prompt, and `json.loads()` the reply.
+**Service logic** (`services/judge_llm.py`): Format the transcript as plain text lines (`"{role}: {content}"`), build a user message containing the transcript and final answer, call Gemini with the judge system prompt, and parse the JSON reply.
 
 **Robustness requirement:** LLMs sometimes wrap JSON in prose or markdown fences despite instructions. Wrap the parse in a try/except; on failure, strip anything before the first `{` and after the last `}` and retry the parse once before raising an error. Never let a malformed judge reply crash the submit endpoint — log it and return a clear error to the frontend instead.
 
@@ -413,7 +413,7 @@ Build 5-7 more of these before considering the app "content complete" — vary c
 ## 15. Deployment
 
 - **Frontend**: push to GitHub, connect the repo to Vercel, set `VITE_API_BASE_URL` to the deployed backend URL as a Vercel environment variable.
-- **Backend**: connect the repo to Render or Railway, set `DATABASE_URL`, `ANTHROPIC_API_KEY`, and `JWT_SECRET` as environment variables in that platform's dashboard (never commit `.env`).
+- **Backend**: connect the repo to Render or Railway, set `DATABASE_URL`, `GEMINI_API_KEY`, and `JWT_SECRET` as environment variables in that platform's dashboard (never commit `.env`).
 - **Database**: already live via Neon/Supabase; no separate deploy step.
 - After both are live, update the backend's CORS allowed origins to the real Vercel domain (don't leave it wide open to `*` in production).
 

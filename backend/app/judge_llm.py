@@ -4,17 +4,18 @@ import re
 import logging
 from typing import Dict, List
 from pydantic import BaseModel, Field, ValidationError
-from anthropic import Anthropic
-from backend.app.config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL, RUN_LLM_TESTS
+from google import genai
+from google.genai import types
+from backend.app.config import GEMINI_API_KEY, GEMINI_MODEL, RUN_LLM_TESTS
 
 logger = logging.getLogger("judge_llm")
 
-if not ANTHROPIC_MODEL:
-    raise ValueError("Configuration Error: ANTHROPIC_MODEL is required.")
+if not GEMINI_MODEL:
+    raise ValueError("Configuration Error: GEMINI_MODEL is required.")
 
 client = None
-if ANTHROPIC_API_KEY:
-    client = Anthropic(api_key=ANTHROPIC_API_KEY)
+if GEMINI_API_KEY:
+    client = genai.Client(api_key=GEMINI_API_KEY)
 
 # Strict Pydantic schemas for Judge output validation
 class DimensionScoresModel(BaseModel):
@@ -77,7 +78,16 @@ def parse_and_validate_judge_response(response_text: str) -> dict:
             logger.error(f"No JSON block found in judge response: {clean_text}")
             raise ValueError("Judge output is not valid JSON")
 
-    # 3. Pydantic validation
+    # 3. Normalize numeric scores to integers before validation
+    if isinstance(data, dict):
+        if "overall_score" in data and isinstance(data["overall_score"], (int, float)):
+            data["overall_score"] = round(data["overall_score"])
+        if "dimension_scores" in data and isinstance(data["dimension_scores"], dict):
+            for k, v in data["dimension_scores"].items():
+                if isinstance(v, (int, float)):
+                    data["dimension_scores"][k] = round(v)
+
+    # 4. Pydantic validation
     try:
         validated = JudgeOutput(**data)
         # Convert Pydantic model to dict
@@ -97,7 +107,7 @@ def call_judge_ai(
     """
     Prepares prompts, calls the Judge LLM, parses and validates the response.
     """
-    # Fallback to mock response in test mode or when Claude client is not configured
+    # Fallback to mock response in test mode or when Gemini client is not configured
     if not RUN_LLM_TESTS or not client:
         return {
             "overall_score": 82,
@@ -129,13 +139,16 @@ def call_judge_ai(
     )
 
     try:
-        response = client.messages.create(
-            model=ANTHROPIC_MODEL,
-            max_tokens=1500,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_content}]
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=user_content,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                max_output_tokens=1500,
+                response_mime_type="application/json",
+            )
         )
-        raw_text = response.content[0].text
+        raw_text = response.text or ""
         return parse_and_validate_judge_response(raw_text)
     except Exception as e:
         logger.error(f"Error in call_judge_ai: {e}")

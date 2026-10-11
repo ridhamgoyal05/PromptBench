@@ -64,7 +64,7 @@ A fundamental security and integrity requirement of PromptBench is the strict ai
 - **Client Tier**: React 18 SPA built with Vite and Tailwind CSS. Axios handles JWT-authenticated HTTP requests with automatic bearer token injection.
 - **API Tier**: Python FastAPI backend with modular routers (`auth`, `questions`, `submissions`, `evaluations`).
 - **Data Tier**: PostgreSQL 1Relational database with SQLAlchemy 2.0 ORM.
-- **AI Integration Tier**: Anthropic Claude API (`claude-3-5-sonnet-20241022`) for intelligent candidate assistance and structured rubric evaluation.
+- **AI Integration Tier**: Google Gemini API (`gemini-2.5-flash` via `google-genai` SDK) for intelligent candidate assistance and structured rubric evaluation.
 
 ---
 
