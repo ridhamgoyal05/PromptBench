@@ -9,7 +9,7 @@ This guide walks you through setting up and running PromptBench locally on your 
 - **Python**: Version 3.10, 3.11, 3.12, or 3.13+
 - **Node.js**: Version 18.x or 20.x LTS + `npm`
 - **PostgreSQL**: Version 14, 15, or 16 (or use the built-in Windows portable setup script)
-- **Anthropic API Key**: For real AI evaluations (optional if using mock mode `RUN_LLM_TESTS=false`)
+- **Gemini API Key**: For real AI evaluations (optional if using mock mode `RUN_LLM_TESTS=false`)
 
 ---
 
@@ -82,7 +82,7 @@ pip install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your DATABASE_URL, ANTHROPIC_API_KEY, and JWT_SECRET_KEY
+# Edit .env with your DATABASE_URL, GEMINI_API_KEY, and JWT_SECRET_KEY
 
 # Seed database with the 5 business case studies
 python seed.py
@@ -114,8 +114,8 @@ npm run dev
 | Variable | Description | Example / Default |
 | :--- | :--- | :--- |
 | `DATABASE_URL` | PostgreSQL connection URI | `postgresql://postgres@localhost:5432/postgres` |
-| `ANTHROPIC_API_KEY` | Anthropic Claude API Key | `sk-ant-api03-...` |
-| `ANTHROPIC_MODEL` | Claude model identifier | `claude-3-5-sonnet-20241022` |
+| `GEMINI_API_KEY` | Google Gemini API Key | `AIzaSy...` |
+| `GEMINI_MODEL` | Gemini model identifier | `gemini-2.5-flash` |
 | `JWT_SECRET_KEY` | Secret for signing JWT tokens | `random-secure-32-char-string` |
 | `RUN_LLM_TESTS` | Toggle live LLM calls (`false` uses deterministic mock responses) | `false` |
 

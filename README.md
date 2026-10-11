@@ -36,7 +36,7 @@ React 18 Frontend (SPA)
 FastAPI Backend (REST API) ────► PostgreSQL 16
    │                    │
    ▼                    ▼
-Helper AI (Claude)   Judge AI (Claude)
+Helper AI (Gemini)   Judge AI (Gemini)
 (Public context      (Hidden ground truth +
  only; no rubrics)    rubrics; runs on submission)
 ```
@@ -62,7 +62,7 @@ Helper AI (Claude)   Judge AI (Claude)
 - **ORM & Database**: [SQLAlchemy 2.0](https://www.sqlalchemy.org/) + [PostgreSQL 16](https://www.postgresql.org/) (via `psycopg2-binary`)
 - **Data Validation**: [Pydantic v2](https://docs.pydantic.dev/)
 - **Authentication**: JWT (`python-jose`) + password hashing (`bcrypt`)
-- **AI Integration**: [Anthropic Claude API](https://docs.anthropic.com/) (`claude-3-5-sonnet-20241022`)
+- **AI Integration**: [Google Gemini API](https://ai.google.dev/) (`gemini-2.5-flash` via `google-genai` SDK)
 - **Automated Verification**: `unittest` + `httpx` (`TestClient`)
 
 ### Frontend

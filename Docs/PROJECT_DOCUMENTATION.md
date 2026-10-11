@@ -40,7 +40,7 @@ The Helper AI never receives the rubric, the ground-truth notes, or any scoring 
 | Database | PostgreSQL 16.2 |
 | Data validation | Pydantic |
 | Authentication | JWT (python-jose), Bcrypt password hashing |
-| AI provider | Anthropic API (Claude) |
+| AI provider | Google Gemini API (gemini-2.5-flash) |
 | Frontend framework | React 18 (Vite) |
 | Styling | Tailwind CSS |
 | HTTP client | Axios |
@@ -68,8 +68,8 @@ The backend is organized as a set of FastAPI routers, each responsible for one c
 - `questions.py` — listing and retrieving business case studies.
 - `submissions.py` — starting a case attempt, exchanging chat messages with the Helper AI, and submitting the final answer for grading.
 - `evaluations.py` — retrieving past evaluation results and attempt history.
-- `candidate_llm.py` — wraps the Anthropic API call for the Helper AI, scoped only to public case context.
-- `judge_llm.py` — wraps the Anthropic API call for the Judge AI, including strict Pydantic validation of the returned JSON grading report.
+- `candidate_llm.py` — wraps the Google Gemini API call for the Helper AI, scoped only to public case context.
+- `judge_llm.py` — wraps the Google Gemini API call for the Judge AI, including strict Pydantic validation of the returned JSON grading report.
 - `anti_gaming.py` — heuristic checks run at submission time (see Section 8).
 - `config.py` — centralized environment variable loading and startup validation.
 
@@ -178,7 +178,7 @@ Protected routes are wrapped in a `ProtectedRoute` component that redirects unau
 ## 10. Setup & Running Locally
 
 1. **Database**: Start a local PostgreSQL 16.2 instance on `localhost:5432` (convenience scripts `start_postgres.bat` / `stop_postgres.bat` / `status_postgres.bat` are provided for Windows).
-2. **Environment variables**: Populate `backend/.env` (`DATABASE_URL`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `JWT_SECRET_KEY`, `RUN_LLM_TESTS`) and `frontend/.env` (`VITE_API_BASE_URL`) from the provided `.env.example` templates.
+2. **Environment variables**: Populate `backend/.env` (`DATABASE_URL`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `JWT_SECRET_KEY`, `RUN_LLM_TESTS`) and `frontend/.env` (`VITE_API_BASE_URL`) from the provided `.env.example` templates.
 3. **Seed the database**: `python backend/seed.py` — populates 5 case studies spanning `data_diagnosis`, `strategy_generation`, and `customer_reasoning` categories.
 4. **Run backend tests**: `python backend/test_flow.py` — an end-to-end verification suite (7 test cases) covering the signup-to-evaluation flow.
 5. **Start servers**: `start_backend.bat` (FastAPI on port 8000, docs at `/docs`) and `start_frontend.bat` (Vite dev server on port 5173).
@@ -192,7 +192,7 @@ The backend includes `test_flow.py`, an integration test script that exercises t
 - Passwords are hashed with bcrypt before storage; plaintext passwords are never persisted.
 - Authentication uses signed JWTs; protected routes validate the token and re-fetch the user on every request.
 - Ownership checks are enforced on all submission and evaluation endpoints — a user cannot view or modify another user's data.
-- Secrets (`ANTHROPIC_API_KEY`, `JWT_SECRET_KEY`, `DATABASE_URL`) are loaded from environment variables via `.env`, which is excluded from version control by `.gitignore`.
+- Secrets (`GEMINI_API_KEY`, `JWT_SECRET_KEY`, `DATABASE_URL`) are loaded from environment variables via `.env`, which is excluded from version control by `.gitignore`.
 
 ## 13. Limitations & Future Enhancements
 

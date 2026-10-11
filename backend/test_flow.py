@@ -19,17 +19,18 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Set test environment flags
 os.environ["ENV"] = "testing"
-os.environ["RUN_LLM_TESTS"] = "false"
+if "RUN_LLM_TESTS" not in os.environ:
+    os.environ["RUN_LLM_TESTS"] = "false"
 # If no DATABASE_URL is set, we will use a dummy test URL to pass import checks,
 # but we tell the user they must supply one.
 if not os.getenv("DATABASE_URL"):
     os.environ["DATABASE_URL"] = "postgresql://dummy:dummy@localhost:5432/dummy"
-if not os.getenv("ANTHROPIC_MODEL"):
-    os.environ["ANTHROPIC_MODEL"] = "claude-3-5-sonnet-20241022"
+if not os.getenv("GEMINI_MODEL"):
+    os.environ["GEMINI_MODEL"] = "gemini-2.5-flash"
 if not os.getenv("JWT_SECRET_KEY"):
     os.environ["JWT_SECRET_KEY"] = "test-jwt-secret-key-must-be-long"
-if not os.getenv("ANTHROPIC_API_KEY"):
-    os.environ["ANTHROPIC_API_KEY"] = "dummy-api-key"
+if not os.getenv("GEMINI_API_KEY"):
+    os.environ["GEMINI_API_KEY"] = "dummy-api-key"
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -37,14 +38,22 @@ from sqlalchemy.orm import Session
 from backend.app.main import app
 from backend.app.db import engine, Base, SessionLocal
 from backend.app.models import User, Question, Submission, TranscriptTurn, Evaluation
-from backend.app.judge_llm import parse_and_validate_judge_response
+import json
+from backend.app.judge_llm import parse_and_validate_judge_response, call_judge_ai
+from backend.app.candidate_llm import call_helper_ai
 from backend.app.anti_gaming import run_anti_gaming_checks
 
 class PromptBenchTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        # Only attempt database operations if a real DATABASE_URL is provided (not the dummy one)
-        cls.has_real_db = "dummy" not in os.getenv("DATABASE_URL")
+        cls.has_real_db = False
+        if "dummy" not in os.getenv("DATABASE_URL", ""):
+            import socket
+            try:
+                with socket.create_connection(("127.0.0.1", 5432), timeout=0.5):
+                    cls.has_real_db = True
+            except OSError:
+                cls.has_real_db = False
         
         if cls.has_real_db:
             print("Connecting to test PostgreSQL database and initializing tables...")
@@ -324,7 +333,7 @@ class PromptBenchTestCase(unittest.TestCase):
         sub_id = sub_res.json()["submission_id"]
 
         # Setup Judge failure
-        mock_judge_call.side_effect = Exception("Anthropic API Error")
+        mock_judge_call.side_effect = Exception("Gemini API Error")
 
         # Submit answer (should fail)
         submit_res = self.client.post(
@@ -452,6 +461,94 @@ class PromptBenchTestCase(unittest.TestCase):
         ids = [item["submission_id"] for item in history]
         self.assertNotIn(sub_progress.id, ids)
         self.assertNotIn(sub_failed.id, ids)
+
+    # ==========================================
+    # 8. GEMINI LLM INTEGRATION TESTS
+    # ==========================================
+    def test_candidate_llm_mock_fallback(self):
+        # When RUN_LLM_TESTS is False, returns mock string
+        response = call_helper_ai(
+            prompt_text="Help me",
+            context_data="Case data",
+            history=[{"role": "user", "content": "Hello"}]
+        )
+        self.assertIn("Mocked Helper AI response", response)
+
+    @patch("backend.app.candidate_llm.client")
+    @patch("backend.app.candidate_llm.RUN_LLM_TESTS", True)
+    def test_candidate_llm_gemini_call(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.text = "Gemini helper answer"
+        mock_client.models.generate_content.return_value = mock_response
+
+        history = [
+            {"role": "user", "content": "What is churn?"},
+            {"role": "assistant", "content": "Churn is customer cancellation."},
+            {"role": "user", "content": "What caused it?"}
+        ]
+        res = call_helper_ai("Case prompt", "Case context", history)
+        self.assertEqual(res, "Gemini helper answer")
+        
+        # Verify call arguments
+        mock_client.models.generate_content.assert_called_once()
+        call_kwargs = mock_client.models.generate_content.call_args.kwargs
+        from backend.app.config import GEMINI_MODEL
+        self.assertEqual(call_kwargs["model"], GEMINI_MODEL)
+        contents = call_kwargs["contents"]
+        self.assertEqual(len(contents), 3)
+        self.assertEqual(contents[0].role, "user")
+        self.assertEqual(contents[1].role, "model") # mapped from assistant to model
+        self.assertEqual(contents[2].role, "user")
+        self.assertEqual(call_kwargs["config"].max_output_tokens, 1000)
+
+    def test_judge_llm_mock_fallback(self):
+        # When RUN_LLM_TESTS is False, returns mock evaluation dict
+        res = call_judge_ai(
+            prompt_text="Case prompt",
+            context_data="Case context",
+            transcript=[{"role": "user", "content": "hi"}],
+            final_answer="My answer",
+            ground_truth_notes="Notes",
+            rubric_json={"clarifying_questions": {"weight": 0.25}}
+        )
+        self.assertEqual(res["overall_score"], 82)
+        self.assertIn("Mocked Judge evaluation", res["reasoning"])
+
+    @patch("backend.app.judge_llm.client")
+    @patch("backend.app.judge_llm.RUN_LLM_TESTS", True)
+    def test_judge_llm_gemini_call(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.text = json.dumps({
+            "overall_score": 95,
+            "dimension_scores": {
+                "clarifying_questions": 10,
+                "iteration_quality": 9,
+                "hallucination_catching": 10,
+                "final_answer_quality": 9
+            },
+            "reasoning": "Outstanding performance evaluated by Gemini."
+        })
+        mock_client.models.generate_content.return_value = mock_response
+
+        res = call_judge_ai(
+            prompt_text="Case prompt",
+            context_data="Case context",
+            transcript=[{"role": "user", "content": "What caused churn?"}],
+            final_answer="Feature X removal caused churn.",
+            ground_truth_notes="Ground truth",
+            rubric_json={"weights": "equal"}
+        )
+        self.assertEqual(res["overall_score"], 95)
+        self.assertEqual(res["dimension_scores"]["clarifying_questions"], 10)
+        self.assertEqual(res["reasoning"], "Outstanding performance evaluated by Gemini.")
+
+        # Verify call arguments
+        mock_client.models.generate_content.assert_called_once()
+        call_kwargs = mock_client.models.generate_content.call_args.kwargs
+        from backend.app.config import GEMINI_MODEL
+        self.assertEqual(call_kwargs["model"], GEMINI_MODEL)
+        self.assertEqual(call_kwargs["config"].max_output_tokens, 1500)
+        self.assertEqual(call_kwargs["config"].response_mime_type, "application/json")
 
 if __name__ == "__main__":
     unittest.main()

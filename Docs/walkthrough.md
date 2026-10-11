@@ -89,6 +89,6 @@ The evaluation report includes:
 - **Cause**: PostgreSQL service is not running.
 - **Fix**: Run `scripts\start_postgres.bat` or verify local PostgreSQL is listening on port 5432.
 
-### "Helper AI API call failed" / "Anthropic API Error"
-- **Cause**: Invalid or missing `ANTHROPIC_API_KEY`.
+### "Helper AI API call failed" / "Gemini API Error"
+- **Cause**: Invalid or missing `GEMINI_API_KEY`.
 - **Fix**: Set a valid key in `backend/.env` or set `RUN_LLM_TESTS=false` to use deterministic mock responses for local testing.
