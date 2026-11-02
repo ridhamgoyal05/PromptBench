@@ -1,22 +1,29 @@
 import os
 import sys
+import json
 
 # Ensure backend directory is in python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(backend_dir)
+sys.path.append(root_dir)
 
 from backend.app.db import engine, Base, SessionLocal
 from backend.app.models import Question
 
-def seed_database():
+def seed_database(clear_existing: bool = False):
     print("Initializing database schema...")
     Base.metadata.create_all(bind=engine)
     
     db: SessionLocal = SessionLocal()
     try:
-        # Clear existing questions to avoid duplicates on re-run
-        print("Clearing existing questions...")
-        db.query(Question).delete()
-        db.commit()
+        if clear_existing:
+            print("Clearing existing questions...")
+            db.query(Question).delete()
+            db.commit()
+
+        # Query existing question titles to avoid duplicates
+        existing_titles = {row[0] for row in db.query(Question.title).all()}
+        print(f"Found {len(existing_titles)} existing questions in database.")
 
         # Seed default rubric
         default_rubric = {
@@ -44,7 +51,7 @@ def seed_database():
             ]
         }
 
-        questions = [
+        default_questions = [
             Question(
                 title="Sudden Churn Spike",
                 category="data_diagnosis",
@@ -183,10 +190,52 @@ def seed_database():
             )
         ]
 
-        print("Seeding questions...")
-        db.add_all(questions)
+        # 1. Seed original 5 default questions (avoiding duplicates)
+        seeded_default_count = 0
+        for q in default_questions:
+            if q.title not in existing_titles:
+                db.add(q)
+                existing_titles.add(q.title)
+                seeded_default_count += 1
+        
         db.commit()
-        print("Database seeded successfully with 5 questions!")
+        print(f"Seeded {seeded_default_count} new default questions (out of 5).")
+
+        # 2. Automatically read backend/generated_questions.json if present
+        generated_json_path = os.path.join(backend_dir, "generated_questions.json")
+        if os.path.exists(generated_json_path):
+            print(f"Found generated questions at: {generated_json_path}")
+            try:
+                with open(generated_json_path, "r", encoding="utf-8") as f:
+                    generated_cases = json.load(f)
+                
+                additional_seeded = 0
+                for item in generated_cases:
+                    title = item.get("title", "").strip()
+                    if title and title not in existing_titles:
+                        question_obj = Question(
+                            title=title,
+                            category=item.get("category", "data_diagnosis"),
+                            difficulty=item.get("difficulty", "medium"),
+                            prompt_text=item.get("prompt_text", ""),
+                            context_data=item.get("context_data", ""),
+                            ground_truth_notes=item.get("ground_truth_notes", ""),
+                            rubric_json=default_rubric
+                        )
+                        db.add(question_obj)
+                        existing_titles.add(title)
+                        additional_seeded += 1
+                
+                db.commit()
+                print(f"Successfully seeded {additional_seeded} additional questions from generated_questions.json.")
+            except Exception as e:
+                print(f"Warning: Could not process generated_questions.json: {e}")
+        else:
+            print("No backend/generated_questions.json found. Skipping additional questions.")
+
+        total_questions = db.query(Question).count()
+        print(f"Database seeding complete! Total questions in database: {total_questions}")
+
     except Exception as e:
         db.rollback()
         print(f"Error seeding database: {e}")
@@ -195,4 +244,5 @@ def seed_database():
         db.close()
 
 if __name__ == "__main__":
-    seed_database()
+    clear_flag = "--clear" in sys.argv
+    seed_database(clear_existing=clear_flag)

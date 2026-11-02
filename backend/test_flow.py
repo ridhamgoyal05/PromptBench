@@ -19,7 +19,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Set test environment flags
 os.environ["ENV"] = "testing"
-if "RUN_LLM_TESTS" not in os.environ:
+if True:
     os.environ["RUN_LLM_TESTS"] = "false"
 # If no DATABASE_URL is set, we will use a dummy test URL to pass import checks,
 # but we tell the user they must supply one.
@@ -93,8 +93,8 @@ class PromptBenchTestCase(unittest.TestCase):
             cls.db.query(Evaluation).delete()
             cls.db.query(TranscriptTurn).delete()
             cls.db.query(Submission).delete()
-            cls.db.query(Question).delete()
-            cls.db.query(User).delete()
+            cls.db.query(Question).filter(Question.id == cls.question_id).delete()
+            cls.db.query(User).filter(User.email.like("%@example.com")).delete()
             cls.db.commit()
             cls.db.close()
 
