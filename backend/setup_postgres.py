@@ -13,7 +13,6 @@ PORT = 5432
 URL = "https://get.enterprisedb.com/postgresql/postgresql-16.2-1-windows-x64-binaries.zip"
 
 def get_bin_dir():
-    # Check if nested in pgsql/pgsql/bin or pgsql/bin
     nested = os.path.join(PG_DIR, "pgsql", "bin")
     direct = os.path.join(PG_DIR, "bin")
     if os.path.exists(nested):
@@ -89,10 +88,11 @@ def start_server():
 
     print("Starting PostgreSQL server on port 5432...")
     cmd = [pg_ctl_path, "start", "-D", DATA_DIR, "-o", f"-p {PORT}", "-l", log_file]
-    res = subprocess.run(cmd, capture_output=True, text=True)
+    res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if res.returncode != 0:
-        print("Failed to start PostgreSQL server:", res.stderr)
+        print("Failed to start PostgreSQL server.")
         return False
+    time.sleep(1.5)
     print("PostgreSQL server started successfully.")
     return True
 
